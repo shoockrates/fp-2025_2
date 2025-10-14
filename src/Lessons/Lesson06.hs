@@ -97,8 +97,9 @@ runTx :: IO ()
 runTx = do
     a <- newTVarIO 50
     b <- newTVarIO 100
-    forkIO $ atomically $ transfer a b 51
+    z <- async $ atomically $ transfer a b 51
     atomically $ modifyTVar a (+10)
+    _ <- wait z
     ar <- readTVarIO a
     br <- readTVarIO b
     putStrLn $ "a=" ++ show ar ++ ", b=" ++  show br
