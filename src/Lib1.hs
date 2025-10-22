@@ -14,7 +14,11 @@ module Lib1
 where
 
 data Dumpable = Examples
-  deriving (Show, Read, Eq)
+  deriving (Show, Read)
+
+-- Manual Eq instance for Dumpable
+instance Eq Dumpable where
+  Examples == Examples = True
 
 keywords :: [String]
 keywords =
@@ -113,7 +117,38 @@ data Command
       { playerId :: Integer
       }
   | Dump Dumpable
-  deriving (Show, Read, Eq)
+  deriving (Show, Read)
+
+-- Manual Eq instance for Command
+instance Eq Command where
+  (AddPlayer pid1 n1 b1) == (AddPlayer pid2 n2 b2) = 
+    pid1 == pid2 && n1 == n2 && b1 == b2
+  (AddGame gid1 gn1 gt1) == (AddGame gid2 gn2 gt2) = 
+    gid1 == gid2 && gn1 == gn2 && gt1 == gt2
+  (AddTable tid1 tn1 gr1 minb1 maxb1 dr1) == (AddTable tid2 tn2 gr2 minb2 maxb2 dr2) = 
+    tid1 == tid2 && tn1 == tn2 && gr1 == gr2 && minb1 == minb2 && maxb1 == maxb2 && dr1 == dr2
+  (PlaceBet bid1 pr1 tr1 a1 bt1 pb1 rr1) == (PlaceBet bid2 pr2 tr2 a2 bt2 pb2 rr2) = 
+    bid1 == bid2 && pr1 == pr2 && tr1 == tr2 && a1 == a2 && bt1 == bt2 && pb1 == pb2 && rr1 == rr2
+  (AddRound rid1 tr1 pr1 s1) == (AddRound rid2 tr2 pr2 s2) = 
+    rid1 == rid2 && tr1 == tr2 && pr1 == pr2 && s1 == s2
+  (ResolveBet br1 o1) == (ResolveBet br2 o2) = 
+    br1 == br2 && o1 == o2
+  (AddDealer did1 dn1 tr1) == (AddDealer did2 dn2 tr2) = 
+    did1 == did2 && dn1 == dn2 && tr1 == tr2
+  (Deposit pr1 a1) == (Deposit pr2 a2) = 
+    pr1 == pr2 && a1 == a2
+  (Withdraw pr1 a1) == (Withdraw pr2 a2) = 
+    pr1 == pr2 && a1 == a2
+  (SetLimit pr1 lt1 a1) == (SetLimit pr2 lt2 a2) = 
+    pr1 == pr2 && lt1 == lt2 && a1 == a2
+  ShowPlayers == ShowPlayers = True
+  ShowGames == ShowGames = True
+  ShowTables == ShowTables = True
+  ShowBets == ShowBets = True
+  ShowRounds == ShowRounds = True
+  (RemovePlayer pid1) == (RemovePlayer pid2) = pid1 == pid2
+  (Dump d1) == (Dump d2) = d1 == d2
+  _ == _ = False
 
 data GameType = Blackjack | Roulette | Poker | Baccarat | Slots
   deriving (Show, Read, Eq)
