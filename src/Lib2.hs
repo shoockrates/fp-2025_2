@@ -7,21 +7,16 @@ module Lib2(
   , process
   ) where
 
-
 import qualified Lib1
 import Data.List (isPrefixOf)
-import Data.Char (isDigit, isSpace, isAlpha, isAlphaNum)
-
+import Data.Char (isDigit, isSpace)
 
 type ErrorMsg = String
 type Parser a = String -> Either ErrorMsg (a, String)
 
-
--- Basic BNF symbol parsers
 char :: Parser Char
 char (c:cs) = Right (c, cs)
 char [] = Left "No character available"
-
 
 digit :: Parser Char
 digit input@(c:cs)
@@ -29,14 +24,12 @@ digit input@(c:cs)
   | otherwise = Left ("Expected digit, got: " ++ [c])
 digit [] = Left "Expected digit, got empty input"
 
-
 number :: Parser String
 number input =
   let (digits, rest) = span isDigit input
   in if null digits 
      then Left "Expected number" 
      else Right (digits, rest)
-
 
 string :: Parser String
 string ('"':input) =
@@ -46,47 +39,122 @@ string ('"':input) =
        _ -> Left "Unterminated string"
 string _ = Left "Expected quoted string"
 
-
 whitespace :: Parser String
 whitespace input = Right (takeWhile isSpace input, dropWhile isSpace input)
 
+-- Repetition combinators
+many :: Parser a -> Parser [a]
+many p input = case p input of
+  Right (v, rest) -> case many p rest of
+    Right (vs, rest') -> Right (v:vs, rest')
+    Left _ -> Right ([v], rest)
+  Left _ -> Right ([], input)
 
--- Parser combinators
-and2 :: Parser a -> Parser b -> Parser (a, b)
-and2 p1 p2 input = case p1 input of
-  Right (v1, rest1) -> case p2 rest1 of
-    Right (v2, rest2) -> Right ((v1, v2), rest2)
-    Left e -> Left e
+many1 :: Parser a -> Parser [a]
+many1 p input = case p input of
+  Right (v, rest) -> case many p rest of
+    Right (vs, rest') -> Right (v:vs, rest')
+    Left _ -> Right ([v], rest)
   Left e -> Left e
 
+and2 :: Parser a -> Parser b -> Parser (a, b)
+and2 p1 p2 input =
+  case p1 input of
+    Left err -> Left err
+    Right (v1, rest1) ->
+      case p2 rest1 of
+        Left err -> Left err
+        Right (v2, rest2) -> Right ((v1, v2), rest2)
 
 and3 :: Parser a -> Parser b -> Parser c -> Parser (a, b, c)
-and3 p1 p2 p3 input = case p1 input of
-  Right (v1, rest1) -> case p2 rest1 of
-    Right (v2, rest2) -> case p3 rest2 of
-      Right (v3, rest3) -> Right ((v1, v2, v3), rest3)
-      Left e -> Left e
-    Left e -> Left e
-  Left e -> Left e
-
+and3 p1 p2 p3 input =
+  case p1 input of
+    Left err -> Left err
+    Right (v1, rest1) ->
+      case p2 rest1 of
+        Left err -> Left err
+        Right (v2, rest2) ->
+          case p3 rest2 of
+            Left err -> Left err
+            Right (v3, rest3) ->
+              Right ((v1, v2, v3), rest3)
 
 and4 :: Parser a -> Parser b -> Parser c -> Parser d -> Parser (a, b, c, d)
-and4 p1 p2 p3 p4 input = case p1 input of
-  Right (v1, rest1) -> case p2 rest1 of
-    Right (v2, rest2) -> case p3 rest2 of
-      Right (v3, rest3) -> case p4 rest3 of
-        Right (v4, rest4) -> Right ((v1, v2, v3, v4), rest4)
-        Left e -> Left e
-      Left e -> Left e
-    Left e -> Left e
-  Left e -> Left e
+and4 p1 p2 p3 p4 input =
+  case p1 input of
+    Left err -> Left err
+    Right (v1, rest1) ->
+      case p2 rest1 of
+        Left err -> Left err
+        Right (v2, rest2) ->
+          case p3 rest2 of
+            Left err -> Left err
+            Right (v3, rest3) ->
+              case p4 rest3 of
+                Left err -> Left err
+                Right (v4, rest4) ->
+                  Right ((v1, v2, v3, v4), rest4)
 
+and5 :: Parser a -> Parser b -> Parser c -> Parser d -> Parser e -> Parser (a, b, c, d, e)
+and5 p1 p2 p3 p4 p5 input =
+  case p1 input of
+    Left err -> Left err
+    Right (v1, rest1) ->
+      case p2 rest1 of
+        Left err -> Left err
+        Right (v2, rest2) ->
+          case p3 rest2 of
+            Left err -> Left err
+            Right (v3, rest3) ->
+              case p4 rest3 of
+                Left err -> Left err
+                Right (v4, rest4) ->
+                  case p5 rest4 of
+                    Left err -> Left err
+                    Right (v5, rest5) ->
+                      Right ((v1, v2, v3, v4, v5), rest5)
+
+and6 :: Parser a -> Parser b -> Parser c -> Parser d -> Parser e -> Parser f -> Parser (a, b, c, d, e, f)
+and6 p1 p2 p3 p4 p5 p6 input =
+  case p1 input of
+    Left err -> Left err
+    Right (v1, rest1) ->
+      case p2 rest1 of
+        Left err -> Left err
+        Right (v2, rest2) ->
+          case p3 rest2 of
+            Left err -> Left err
+            Right (v3, rest3) ->
+              case p4 rest3 of
+                Left err -> Left err
+                Right (v4, rest4) ->
+                  case p5 rest4 of
+                    Left err -> Left err
+                    Right (v5, rest5) ->
+                      case p6 rest5 of
+                        Left err -> Left err
+                        Right (v6, rest6) ->
+                          Right ((v1, v2, v3, v4, v5, v6), rest6)
 
 orElse :: Parser a -> Parser a -> Parser a
-orElse p1 p2 input = case p1 input of
-  Right r -> Right r
-  Left _  -> p2 input
+orElse p1 p2 input = 
+  case p1 input of
+    Right r -> Right r
+    Left _  -> p2 input
 
+
+pmap :: (a -> b) -> Parser a -> Parser b
+pmap f p input =
+  case p input of
+    Left err -> Left err
+    Right (v, rest) -> Right (f v, rest)
+
+
+specificChar :: Char -> Parser Char
+specificChar expected input = case char input of
+  Right (c, rest) | c == expected -> Right (c, rest)
+                  | otherwise -> Left ("Expected '" ++ [expected] ++ "', got '" ++ [c] ++ "'")
+  Left e -> Left e
 
 keyword :: String -> Parser String
 keyword prefix input =
@@ -94,26 +162,27 @@ keyword prefix input =
   then Right (prefix, drop (length prefix) input)
   else Left (prefix ++ " expected, got: " ++ input)
 
-
 ws :: Parser String
 ws input = Right (takeWhile (== ' ') input, dropWhile (== ' ') input)
-
 
 parseString :: Parser String
 parseString = string
 
-
+-- parseInt using number parser
 parseInt :: Parser Integer
-parseInt input =
-  let (digits, rest) = span isDigit input
-  in if null digits then Left "Expected integer" else Right (read digits, rest)
+parseInt input = case number input of
+  Right (numStr, rest) -> Right (read numStr, rest)
+  Left e -> Left e
 
-
+-- parseDouble using number and digit parsers
 parseDouble :: Parser Double
-parseDouble input =
-  let (num, rest) = span (\r -> isDigit r || r == '.') input
-  in if null num then Left "Expected number" else Right (read num, rest)
-
+parseDouble input = case number input of
+  Right (intPart, rest) -> case rest of
+    ('.':rest') -> case number rest' of
+      Right (fracPart, rest'') -> Right (read (intPart ++ "." ++ fracPart), rest'')
+      Left _ -> Right (read intPart, rest)
+    _ -> Right (read intPart, rest)
+  Left e -> Left e
 
 parseRoundStatus :: Parser Lib1.RoundStatus
 parseRoundStatus input =
@@ -122,7 +191,6 @@ parseRoundStatus input =
     ('F':'i':'n':'i':'s':'h':'e':'d':rest) -> Right (Lib1.Finished, rest)
     ('C':'a':'n':'c':'e':'l':'l':'e':'d':rest) -> Right (Lib1.Cancelled, rest)
     _ -> Left "Expected round status (Active|Finished|Cancelled)"
-
 
 parseGameType :: Parser Lib1.GameType
 parseGameType input =
@@ -133,7 +201,6 @@ parseGameType input =
     ('B':'a':'c':'c':'a':'r':'a':'t':rest) -> Right (Lib1.Baccarat, rest)
     ('S':'l':'o':'t':'s':rest) -> Right (Lib1.Slots, rest)
     _ -> Left "Unknown game type"
-
 
 parseBetType :: Parser Lib1.BetType
 parseBetType input =
@@ -149,7 +216,6 @@ parseBetType input =
     ('D':'o':'n':'t':'P':'a':'s':'s':rest) -> Right (Lib1.DontPass, rest)
     _ -> Left "Unknown bet type"
 
-
 parseBetOutcome :: Parser Lib1.BetOutcome
 parseBetOutcome input =
   case dropWhile (== ' ') input of
@@ -162,211 +228,189 @@ parseBetOutcome input =
 
 
 parseDump :: Parser Lib1.Command
-parseDump input = case keyword "Dump" input of
-  Right (_, rest0) -> do
-    (_, rest1) <- ws rest0
-    (_, rest2) <- keyword "Examples" rest1
-    Right (Lib1.Dump Lib1.Examples, rest2)
-  Left e -> Left e
-
+parseDump =
+  pmap (\(_, _, _) -> Lib1.Dump Lib1.Examples) $
+    and3 (keyword "Dump") ws (keyword "Examples")
 
 parseAddPlayer :: Parser Lib1.Command
-parseAddPlayer input = case keyword "AddPlayer" input of
-  Right (_, rest0) -> do
-    (_, rest1) <- ws rest0
-    (pid, rest2) <- parseInt rest1
-    (_, rest3) <- ws rest2
-    (name, rest4) <- parseString rest3
-    (_, rest5) <- ws rest4
-    (bal, rest6) <- parseDouble rest5
-    Right (Lib1.AddPlayer pid name bal, rest6)
-  Left _ -> Left "Not AddPlayer"
+parseAddPlayer =
+  pmap (\(_, (_, pid, _, name, _, bal)) -> Lib1.AddPlayer pid name bal) $
+    and2
+      (keyword "AddPlayer")
+      (and6 ws parseInt ws parseString ws parseDouble)
 
 
 parseAddGame :: Parser Lib1.Command
-parseAddGame input = case keyword "AddGame" input of
-  Right (_, rest0) -> do
-    (_, rest1) <- ws rest0
-    (gid, rest2) <- parseInt rest1
-    (_, rest3) <- ws rest2
-    (gname, rest4) <- parseString rest3
-    (_, rest5) <- ws rest4
-    (gtype, rest6) <- parseGameType rest5
-    Right (Lib1.AddGame gid gname gtype, rest6)
-  Left _ -> Left "Not AddGame"
+parseAddGame =
+  pmap (\(_, (_, gid, _, gname, _, gtype)) -> Lib1.AddGame gid gname gtype) $
+    and2
+      (keyword "AddGame")
+      (and6 ws parseInt ws parseString ws parseGameType)
+
+
 
 
 parseAddDealer :: Parser Lib1.Command
-parseAddDealer input = case keyword "AddDealer" input of
-  Right (_, rest0) -> do
-    (_, rest1) <- ws rest0
-    (did, rest2) <- parseInt rest1
-    (_, rest3) <- ws rest2
-    (dname, rest4) <- parseString rest3
-    (_, rest5) <- ws rest4
-    (tref, rest6) <- parseInt rest5
-    Right (Lib1.AddDealer did dname tref, rest6)
-  Left _ -> Left "Not AddDealer"
+parseAddDealer =
+  pmap (\(_, (_, did, _, dname, _, tref)) -> Lib1.AddDealer did dname tref) $
+    and2
+      (keyword "AddDealer")
+      (and6 ws parseInt ws parseString ws parseInt)
 
 
 parseAddTable :: Parser Lib1.Command
-parseAddTable input = case keyword "AddTable" input of
-  Right (_, rest0) -> do
-    (_, rest1) <- ws rest0
-    (tid, rest2) <- parseInt rest1
-    (_, rest3) <- ws rest2
-    (tname, rest4) <- parseString rest3
-    (_, rest5) <- ws rest4
-    (gref, rest6) <- parseInt rest5
-    (_, rest7) <- ws rest6
-    (minb, rest8) <- parseDouble rest7
-    (_, rest9) <- ws rest8
-    (maxb, rest10) <- parseDouble rest9
-    
-    let restAfterMax = dropWhile (== ' ') rest10
-    case parseInt restAfterMax of
-      Right (did, rest11) -> Right (Lib1.AddTable tid tname gref minb maxb (Just did), rest11)
-      Left _ -> Right (Lib1.AddTable tid tname gref minb maxb Nothing, rest10)
-  Left _ -> Left "Not AddTable"
-
+parseAddTable input =
+  case keyword "AddTable" input of
+    Right (_, rest0) ->
+      case and5 ws parseInt ws parseString (and4 ws parseInt ws parseDouble) rest0 of
+        Right ((_, tid, _, tname, (_, gref, _, minb)), rest1) ->
+          case and2 ws parseDouble rest1 of
+            Right ((_, maxb), rest2) ->
+              let restAfterMax = dropWhile (== ' ') rest2
+              in case parseInt restAfterMax of
+                Right (did, rest3) -> Right (Lib1.AddTable tid tname gref minb maxb (Just did), rest3)
+                Left _ -> Right (Lib1.AddTable tid tname gref minb maxb Nothing, rest2)
+            Left e -> Left e
+        Left e -> Left e
+    Left _ -> Left "Not AddTable"
 
 parseAddRound :: Parser Lib1.Command
-parseAddRound input = case keyword "AddRound" input of
-  Right (_, rest0) -> do
-    (_, rest1) <- ws rest0
-    (rid, rest2) <- parseInt rest1
-    (_, rest3) <- ws rest2
-    (tref, rest4) <- parseInt rest3
-
-    let afterTref = dropWhile (== ' ') rest4
-    case parseInt afterTref of
-      Right (prid, rest5) -> do
-        (_, rest6) <- ws rest5
-        (status, rest7) <- parseRoundStatus rest6
-        Right (Lib1.AddRound rid tref (Just prid) (Just status), rest7)
-      Left _ -> do
-        (_, rest5) <- ws rest4
-        (status, rest6) <- parseRoundStatus rest5
-        Right (Lib1.AddRound rid tref Nothing (Just status), rest6)
-  Left _ -> Left "Not AddRound"
-
+parseAddRound input =
+  case keyword "AddRound" input of
+    Right (_, rest0) ->
+      case and3 ws parseInt ws rest0 of
+        Right ((_, rid, _), rest1) ->
+          case parseInt rest1 of
+            Right (tref, rest2) ->
+              let afterTref = dropWhile (== ' ') rest2
+              in case parseInt afterTref of
+                Right (prid, rest3) ->
+                  case and2 ws parseRoundStatus rest3 of
+                    Right ((_, status), rest4) -> Right (Lib1.AddRound rid tref (Just prid) (Just status), rest4)
+                    Left e -> Left e
+                Left _ ->
+                  case and2 ws parseRoundStatus rest2 of
+                    Right ((_, status), rest3) -> Right (Lib1.AddRound rid tref Nothing (Just status), rest3)
+                    Left e -> Left e
+            Left e -> Left e
+        Left e -> Left e
+    Left _ -> Left "Not AddRound"
 
 parsePlaceBet :: Parser Lib1.Command
-parsePlaceBet input = case keyword "PlaceBet" input of
-  Right (_, rest0) -> do
-    (_, rest1) <- ws rest0
-    (bid, rest2) <- parseInt rest1
-    (_, rest3) <- ws rest2
-    (pref, rest4) <- parseInt rest3
-    (_, rest5) <- ws rest4
-    (tref, rest6) <- parseInt rest5
-    (_, rest7) <- ws rest6
-    (amt, rest8) <- parseDouble rest7
-    (_, rest9) <- ws rest8
-    (btype, rest10) <- parseBetType rest9
-    
-    let afterBType = dropWhile (== ' ') rest10
-    if "parent" `isPrefixOf` afterBType then
-      case keyword "parent" afterBType of
-        Right (_, rest11) -> do
-          (_, rest12) <- ws rest11
-          (pbid, rest13) <- parseInt rest12
-          (_, rest14) <- ws rest13
-          case keyword "round" rest14 of
-            Right (_, rest15) -> do
-              (_, rest16) <- ws rest15
-              (rref, rest17) <- parseInt rest16
-              Right (Lib1.PlaceBet bid pref tref amt btype (Just pbid) rref, rest17)
-            Left _ -> Left "Expected 'round' keyword"
-        Left _ -> Left "Invalid parent"
-    else if "round" `isPrefixOf` afterBType then
-      case keyword "round" afterBType of
-        Right (_, rest11) -> do
-          (_, rest12) <- ws rest11
-          (rref, rest13) <- parseInt rest12
-          Right (Lib1.PlaceBet bid pref tref amt btype Nothing rref, rest13)
-        Left _ -> Left "Invalid round"
-    else
-      case parseInt afterBType of
-        Right (rref, rest11) -> Right (Lib1.PlaceBet bid pref tref amt btype Nothing rref, rest11)
-        Left _ -> Left "Expected round or parent info"
-  Left _ -> Left "Not PlaceBet"
-
+parsePlaceBet input =
+  case keyword "PlaceBet" input of
+    Right (_, rest0) ->
+      case and4 ws parseInt ws parseInt rest0 of
+        Right ((_, bid, _, pref), rest1) ->
+          case and4 ws parseInt ws parseDouble rest1 of
+            Right ((_, tref, _, amt), rest2) ->
+              case and2 ws parseBetType rest2 of
+                Right ((_, btype), rest3) ->
+                  let afterBType = dropWhile (== ' ') rest3
+                  in if "parent" `isPrefixOf` afterBType then
+                    case and3 (keyword "parent") ws parseInt afterBType of
+                      Right ((_, _, pbid), rest4) ->
+                        case and3 ws (keyword "round") ws rest4 of
+                          Right ((_, _, _), rest5) ->
+                            case parseInt rest5 of
+                              Right (rref, rest6) -> Right (Lib1.PlaceBet bid pref tref amt btype (Just pbid) rref, rest6)
+                              Left e -> Left e
+                          Left e -> Left e
+                      Left e -> Left e
+                  else if "round" `isPrefixOf` afterBType then
+                    case and3 (keyword "round") ws parseInt afterBType of
+                      Right ((_, _, rref), rest4) -> Right (Lib1.PlaceBet bid pref tref amt btype Nothing rref, rest4)
+                      Left e -> Left e
+                  else
+                    case parseInt afterBType of
+                      Right (rref, rest4) -> Right (Lib1.PlaceBet bid pref tref amt btype Nothing rref, rest4)
+                      Left e -> Left e
+                Left e -> Left e
+            Left e -> Left e
+        Left e -> Left e
+    Left _ -> Left "Not PlaceBet"
 
 parseResolveBet :: Parser Lib1.Command
-parseResolveBet input = case keyword "ResolveBet" input of
-  Right (_, rest0) -> do
-    (_, rest1) <- ws rest0
-    (bre, rest2) <- parseInt rest1
-    (_, rest3) <- ws rest2
-    (outcome, rest4) <- parseBetOutcome rest3
-    Right (Lib1.ResolveBet bre outcome, rest4)
-  Left _ -> Left "Not ResolveBet"
-
+parseResolveBet =
+  pmap (\(_, _, bre, _, outcome) -> Lib1.ResolveBet bre outcome) $
+    and5 
+      (keyword "ResolveBet") 
+      ws 
+      parseInt 
+      ws 
+      parseBetOutcome
 
 parseDeposit :: Parser Lib1.Command
-parseDeposit input = case keyword "Deposit" input of
-  Right (_, rest0) -> do
-    (_, rest1) <- ws rest0
-    (pid, rest2) <- parseInt rest1
-    (_, rest3) <- ws rest2
-    (amt, rest4) <- parseDouble rest3
-    Right (Lib1.Deposit pid amt, rest4)
-  Left _ -> Left "Not Deposit"
-
+parseDeposit =
+  pmap (\(_, _, pid, _, amt) -> Lib1.Deposit pid amt) $
+    and5 
+      (keyword "Deposit") 
+      ws 
+      parseInt 
+      ws 
+      parseDouble
 
 parseWithdraw :: Parser Lib1.Command
-parseWithdraw input = case keyword "Withdraw" input of
-  Right (_, rest0) -> do
-    (_, rest1) <- ws rest0
-    (pid, rest2) <- parseInt rest1
-    (_, rest3) <- ws rest2
-    (amt, rest4) <- parseDouble rest3
-    Right (Lib1.Withdraw pid amt, rest4)
-  Left _ -> Left "Not Withdraw"
-
+parseWithdraw =
+  pmap (\(_, _, pid, _, amt) -> Lib1.Withdraw pid amt) $
+    and5 
+      (keyword "Withdraw") 
+      ws 
+      parseInt 
+      ws 
+      parseDouble
 
 parseSetLimit :: Parser Lib1.Command
-parseSetLimit input = case keyword "SetLimit" input of
-  Right (_, rest0) -> do
-    (_, rest1) <- ws rest0
-    (pid, rest2) <- parseInt rest1
-    (_, rest3) <- ws rest2
-    (ltype, rest4) <- case dropWhile (== ' ') rest3 of
-      ('D':'a':'i':'l':'y':'L':'i':'m':'i':'t':rest) -> Right (Lib1.DailyLimit, rest)
-      ('W':'e':'e':'k':'l':'y':'L':'i':'m':'i':'t':rest) -> Right (Lib1.WeeklyLimit, rest)
-      ('M':'o':'n':'t':'h':'l':'y':'L':'i':'m':'i':'t':rest) -> Right (Lib1.MonthlyLimit, rest)
-      _ -> Left "Expected limit type"
-    (_, rest5) <- ws rest4
-    (amt, rest6) <- parseDouble rest5
-    Right (Lib1.SetLimit pid ltype amt, rest6)
-  Left _ -> Left "Not SetLimit"
+parseSetLimit input =
+  case keyword "SetLimit" input of
+    Right (_, rest0) ->
+      case and3 ws parseInt ws rest0 of
+        Right ((_, pid, _), rest1) ->
+          case dropWhile (== ' ') rest1 of
+            ('D':'a':'i':'l':'y':'L':'i':'m':'i':'t':rest) ->
+              case and2 ws parseDouble rest of
+                Right ((_, amt), rest') -> Right (Lib1.SetLimit pid Lib1.DailyLimit amt, rest')
+                Left e -> Left e
+            ('W':'e':'e':'k':'l':'y':'L':'i':'m':'i':'t':rest) ->
+              case and2 ws parseDouble rest of
+                Right ((_, amt), rest') -> Right (Lib1.SetLimit pid Lib1.WeeklyLimit amt, rest')
+                Left e -> Left e
+            ('M':'o':'n':'t':'h':'l':'y':'L':'i':'m':'i':'t':rest) ->
+              case and2 ws parseDouble rest of
+                Right ((_, amt), rest') -> Right (Lib1.SetLimit pid Lib1.MonthlyLimit amt, rest')
+                Left e -> Left e
+            _ -> Left "Expected limit type"
+        Left e -> Left e
+    Left _ -> Left "Not SetLimit"
 
 
 parseShow :: Parser Lib1.Command
-parseShow input = case keyword "Show" input of
-  Right (_, rest0) -> do
-    (_, rest1) <- ws rest0
-    case dropWhile (== ' ') rest1 of
-      ('P':'l':'a':'y':'e':'r':'s':rest) -> Right (Lib1.ShowPlayers, rest)
-      ('G':'a':'m':'e':'s':rest) -> Right (Lib1.ShowGames, rest)
-      ('T':'a':'b':'l':'e':'s':rest) -> Right (Lib1.ShowTables, rest)
-      ('B':'e':'t':'s':rest) -> Right (Lib1.ShowBets, rest)
-      ('R':'o':'u':'n':'d':'s':rest) -> Right (Lib1.ShowRounds, rest)
-      _ -> Left "Unknown show target"
-  Left _ -> Left "Not Show"
-
+parseShow input =
+  case keyword "Show" input of
+    Right (_, rest0) ->
+      case and2 ws id rest0 of
+        Right ((_, rest1), _) ->
+          case dropWhile (== ' ') rest1 of
+            ('P':'l':'a':'y':'e':'r':'s':rest) -> Right (Lib1.ShowPlayers, rest)
+            ('G':'a':'m':'e':'s':rest) -> Right (Lib1.ShowGames, rest)
+            ('T':'a':'b':'l':'e':'s':rest) -> Right (Lib1.ShowTables, rest)
+            ('B':'e':'t':'s':rest) -> Right (Lib1.ShowBets, rest)
+            ('R':'o':'u':'n':'d':'s':rest) -> Right (Lib1.ShowRounds, rest)
+            _ -> Left "Unknown show target"
+        Left e -> Left e
+    Left _ -> Left "Not Show"
+  where
+    id x = Right (x, x)
 
 parseRemovePlayer :: Parser Lib1.Command
-parseRemovePlayer input = case keyword "RemovePlayer" input of
-  Right (_, rest0) -> do
-    (_, rest1) <- ws rest0
-    (pid, rest2) <- parseInt rest1
-    Right (Lib1.RemovePlayer pid, rest2)
-  Left _ -> Left "Not RemovePlayer"
+parseRemovePlayer =
+  pmap (\(_, _, pid) -> Lib1.RemovePlayer pid) $
+    and3 
+      (keyword "RemovePlayer") 
+      ws 
+      parseInt
 
 
--- Main command parser using orElse combinator
 parseCommand :: Parser Lib1.Command
 parseCommand = foldr1 orElse
   [ parseDump
@@ -384,15 +428,12 @@ parseCommand = foldr1 orElse
   , parseRemovePlayer
   ]
 
-
 process :: Lib1.Command -> [String]
 process (Lib1.Dump Lib1.Examples) = "Examples:" : map toCliCommand Lib1.examples
 process c = ["Parsed as " ++ show c]
 
-
 class ToCliCommand a where
   toCliCommand :: a -> String
-
 
 instance ToCliCommand Lib1.Command where
   toCliCommand = \case
